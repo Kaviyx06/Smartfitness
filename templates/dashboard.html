@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - Smart Fitness Monitor{% endblock %}
+{% block content %}
+<h2 class="mb-4">Health Dashboard</h2>
+
+{% if record %}
+<div class="row g-3 mb-4">
+  <div class="col-md-2 col-6">
+    <div class="card stat-card text-center">
+      <div class="card-body">
+        <div class="stat-value">{{ record['heart_rate'] }}</div>
+        <div class="stat-label">Heart Rate (bpm)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="card stat-card text-center">
+      <div class="card-body">
+        <div class="stat-value">{{ record['steps'] }}</div>
+        <div class="stat-label">Steps</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="card stat-card text-center">
+      <div class="card-body">
+        <div class="stat-value">{{ record['calories_burned'] }}</div>
+        <div class="stat-label">Calories</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="card stat-card text-center">
+      <div class="card-body">
+        <div class="stat-value">{{ record['sleep_hours'] }}</div>
+        <div class="stat-label">Sleep (hrs)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="card stat-card text-center">
+      <div class="card-body">
+        <div class="stat-value">{{ record['spo2'] }}%</div>
+        <div class="stat-label">SpO2</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-2 col-6">
+    <div class="card stat-card text-center">
+      <div class="card-body">
+        <div class="stat-value">{{ record['bmi'] }}</div>
+        <div class="stat-label">BMI</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% else %}
+<p class="text-muted">No health records yet.</p>
+{% endif %}
+
+<div class="row">
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">Weekly Progress (Demo)</div>
+      <div class="card-body">
+        <canvas id="progressChart" height="220"></canvas>
+      </div>
+    </div>
+  </div>
+  <div class="col-lg-6 mb-4">
+    <div class="card h-100">
+      <div class="card-header">Recent Activities</div>
+      <div class="card-body p-0">
+        <table class="table mb-0">
+          <thead><tr><th>Type</th><th>Duration (min)</th><th>Calories</th><th>Logged At</th></tr></thead>
+          <tbody>
+            {% for a in activities %}
+            <tr>
+              <td>{{ a['activity_type'] }}</td>
+              <td>{{ a['duration_minutes'] }}</td>
+              <td>{{ a['calories_burned'] }}</td>
+              <td>{{ a['logged_at'] }}</td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-3">No activities logged yet.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<script>
+  const ctx = document.getElementById('progressChart');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'],
+      datasets: [{
+        label: 'Steps (demo)',
+        data: [5200, 6100, 7300, 6400, 8100, 9200, 6400],
+        borderWidth: 2,
+        tension: 0.3
+      }]
+    },
+    options: { responsive: true, plugins: { legend: { display: true } } }
+  });
+</script>
+{% endblock %}
