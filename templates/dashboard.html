@@ -90,7 +90,137 @@
     </div>
   </div>
 </div>
+<!-- ==========================================
+     SQUAT DETECTION
+     ========================================== -->
 
+<div class="card mb-4 squat-card">
+
+  <div class="card-header">
+    🏋️ Live Squat Detection
+  </div>
+
+  <div class="card-body">
+
+    <div class="row align-items-center">
+
+      <!-- Camera -->
+      <div class="col-lg-8 mb-3">
+
+        <div class="squat-camera-container">
+
+          <img
+            id="squatCamera"
+            src=""
+            alt="Squat Detection Camera"
+          >
+
+          <div
+            id="cameraPlaceholder"
+            class="camera-placeholder">
+
+            📷 Camera is currently stopped
+
+          </div>
+
+        </div>
+
+      </div>
+
+
+      <!-- Statistics -->
+      <div class="col-lg-4">
+
+        <div class="squat-stat">
+
+          <div class="squat-stat-value"
+               id="squatCount">
+            0
+          </div>
+
+          <div class="squat-stat-label">
+            Squats
+          </div>
+
+        </div>
+
+
+        <div class="squat-stat">
+
+          <div class="squat-stat-value"
+               id="kneeAngle">
+            0°
+          </div>
+
+          <div class="squat-stat-label">
+            Knee Angle
+          </div>
+
+        </div>
+
+
+        <div class="squat-stat">
+
+          <div class="squat-stat-value"
+               id="squatPosition">
+            UP
+          </div>
+
+          <div class="squat-stat-label">
+            Position
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <!-- Buttons -->
+
+    <div class="text-center mt-3">
+
+      <button
+        class="btn btn-success me-2"
+        onclick="startSquatCamera()">
+
+        📷 Start Detection
+
+      </button>
+
+
+      <button
+        class="btn btn-danger me-2"
+        onclick="stopSquatCamera()">
+
+        🛑 Stop Camera
+
+      </button>
+
+
+      <button
+        class="btn btn-secondary"
+        onclick="resetSquatCounter()">
+
+        🔄 Reset Counter
+
+      </button>
+
+    </div>
+
+
+    <div
+      id="squatStatus"
+      class="text-center mt-3 text-muted">
+
+      Camera is stopped.
+
+    </div>
+
+  </div>
+
+</div>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
   const ctx = document.getElementById('progressChart');

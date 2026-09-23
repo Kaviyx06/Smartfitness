@@ -13,10 +13,12 @@ diagnosis system and must never be used for real clinical decisions.
 
 import os
 import sqlite3
+import cv2
+import mediapipe as mp
+import math
 from datetime import datetime
 
-from flask import Flask, render_template, request, jsonify, g
-
+from flask import Flask, render_template, request, jsonify, g, Response
 from models.health_model import HealthRiskModel
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
@@ -28,6 +30,39 @@ app.config["DATABASE"] = DB_PATH
 # Train (or load) the demo ML model once at startup.
 health_model = HealthRiskModel()
 health_model.train()
+# ----------------------------------------------------------------------
+# Camera / Squat Detection
+# ----------------------------------------------------------------------
+
+mp_pose = mp.solutions.pose
+mp_drawing = mp.solutions.drawing_utils
+
+pose = mp_pose.Pose(
+    min_detection_confidence=0.5,
+    min_tracking_confidence=0.5
+)
+
+camera = None
+squat_count = 0
+squat_position = "UP"
+knee_angle = 0
+
+
+def calculate_angle(a, b, c):
+    """Calculate angle ABC."""
+
+    angle = math.degrees(
+        math.atan2(c[1] - b[1], c[0] - b[0])
+        -
+        math.atan2(a[1] - b[1], a[0] - b[0])
+    )
+
+    angle = abs(angle)
+
+    if angle > 180:
+        angle = 360 - angle
+
+    return angle
 
 
 # ----------------------------------------------------------------------
@@ -191,6 +226,159 @@ def generate_recommendations(activity_level, sleep_hours, bmi):
 
     return recs
 
+def generate_camera_frames():
+
+    global camera
+    global squat_count
+    global squat_position
+    global knee_angle
+
+    camera = cv2.VideoCapture(0)
+
+    if not camera.isOpened():
+        print("Camera could not be opened.")
+        return
+
+    while True:
+
+        success, frame = camera.read()
+
+        if not success:
+            break
+
+        # Flip camera horizontally
+        frame = cv2.flip(frame, 1)
+
+        # Convert BGR → RGB
+        rgb_frame = cv2.cvtColor(
+            frame,
+            cv2.COLOR_BGR2RGB
+        )
+
+        # Detect pose
+        results = pose.process(rgb_frame)
+
+        if results.pose_landmarks:
+
+            landmarks = results.pose_landmarks.landmark
+
+            hip = landmarks[
+                mp_pose.PoseLandmark.RIGHT_HIP
+            ]
+
+            knee = landmarks[
+                mp_pose.PoseLandmark.RIGHT_KNEE
+            ]
+
+            ankle = landmarks[
+                mp_pose.PoseLandmark.RIGHT_ANKLE
+            ]
+
+            hip_point = (
+                int(hip.x * frame.shape[1]),
+                int(hip.y * frame.shape[0])
+            )
+
+            knee_point = (
+                int(knee.x * frame.shape[1]),
+                int(knee.y * frame.shape[0])
+            )
+
+            ankle_point = (
+                int(ankle.x * frame.shape[1]),
+                int(ankle.y * frame.shape[0])
+            )
+
+            angle = calculate_angle(
+                hip_point,
+                knee_point,
+                ankle_point
+            )
+
+            knee_angle = int(angle)
+
+            # --------------------------------
+            # Squat detection
+            # --------------------------------
+
+            if angle > 160:
+                squat_position = "UP"
+
+            elif angle < 90 and squat_position == "UP":
+                squat_position = "DOWN"
+                squat_count += 1
+
+            # --------------------------------
+            # Draw pose
+            # --------------------------------
+
+            mp_drawing.draw_landmarks(
+                frame,
+                results.pose_landmarks,
+                mp_pose.POSE_CONNECTIONS
+            )
+
+            cv2.putText(
+                frame,
+                f"Squats: {squat_count}",
+                (30, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1.2,
+                (0, 255, 0),
+                3
+            )
+
+            cv2.putText(
+                frame,
+                f"Knee Angle: {knee_angle}",
+                (30, 90),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (255, 255, 0),
+                2
+            )
+
+            cv2.putText(
+                frame,
+                f"Position: {squat_position}",
+                (30, 130),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.8,
+                (0, 200, 255),
+                2
+            )
+
+        else:
+
+            cv2.putText(
+                frame,
+                "No person detected",
+                (30, 50),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                1,
+                (0, 0, 255),
+                2
+            )
+
+        # Convert frame to JPEG
+        ret, buffer = cv2.imencode(
+            ".jpg",
+            frame
+        )
+
+        if not ret:
+            continue
+
+        frame_bytes = buffer.tobytes()
+
+        yield (
+            b"--frame\r\n"
+            b"Content-Type: image/jpeg\r\n\r\n"
+            + frame_bytes
+            + b"\r\n"
+        )
+
+    camera.release()
 
 # ----------------------------------------------------------------------
 # Routes
@@ -211,7 +399,44 @@ def dashboard():
     ).fetchall()
     return render_template("dashboard.html", record=record, activities=activities)
 
+@app.route("/camera")
+def camera_page():
+    return render_template("dashboard.html")
 
+
+@app.route("/video_feed")
+def video_feed():
+    return Response(
+        generate_camera_frames(),
+        mimetype="multipart/x-mixed-replace; boundary=frame"
+    )
+
+
+@app.route("/squat_data")
+def squat_data():
+
+    return jsonify({
+        "squats": squat_count,
+        "angle": knee_angle,
+        "position": squat_position
+    })
+
+
+@app.route("/reset_squats")
+def reset_squats():
+
+    global squat_count
+    global squat_position
+    global knee_angle
+
+    squat_count = 0
+    squat_position = "UP"
+    knee_angle = 0
+
+    return jsonify({
+        "status": "reset",
+        "squats": 0
+    })
 @app.route("/activity", methods=["GET", "POST"])
 def activity():
     db = get_db()
